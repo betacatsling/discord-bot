@@ -24,7 +24,8 @@ from dotenv import load_dotenv
 load_dotenv()
 TOKEN = os.getenv("DISCORD_TOKEN")
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
-GEMINI_MODEL_NAME = os.getenv("GEMINI_MODEL_NAME", "gemini-3-pro-preview")
+# 默认模型：gemini-2.5-flash，可在 .env 通过 GEMINI_MODEL_NAME 覆盖
+GEMINI_MODEL_NAME = os.getenv("GEMINI_MODEL_NAME", "gemini-2.5-flash")
 GUILD_ID = os.getenv("GUILD_ID")  # 可选：指定单个测试服务器以加速 Slash 命令同步
 PROXY_URL = os.getenv("PROXY_URL", "http://127.0.0.1:7897")
 
