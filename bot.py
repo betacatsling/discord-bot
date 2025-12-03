@@ -55,8 +55,13 @@ async def on_ready():
     try:
         if GUILD_ID:
             guild = discord.Object(id=int(GUILD_ID))
+            # 将全局命令复制到指定服务器以便快速出现
+            bot.tree.copy_global_to(guild=guild)
             synced = await bot.tree.sync(guild=guild)
-            print(f"已同步到测试服务器 {GUILD_ID} 的 {len(synced)} 个命令")
+            print(
+                f"已同步到测试服务器 {GUILD_ID} 的 {len(synced)} 个命令"
+                "（若为 0 表示命令已存在且无变更）"
+            )
         else:
             synced = await bot.tree.sync()
             print(f"已同步 {len(synced)} 个命令（全局同步可能需几分钟才能在客户端出现）")
