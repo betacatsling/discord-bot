@@ -12,6 +12,8 @@ except AttributeError:
     except Exception:
         pass
 
+import asyncio
+
 import discord
 import google.generativeai as genai
 from discord import app_commands
@@ -101,18 +103,34 @@ async def gemini(interaction: discord.Interaction, prompt: str):
         return
 
     await interaction.response.defer(thinking=True)
-    try:
+    loop = asyncio.get_running_loop()
+
+    def _call_gemini() -> str:
         model = genai.GenerativeModel(GEMINI_MODEL_NAME)
         result = model.generate_content(prompt)
-        content = result.text or "（Gemini 没有返回文本内容）"
-        # 限制消息长度以避免超出 Discord 限制
-        if len(content) > 1800:
-            content = content[:1800] + "…"
-        await interaction.followup.send(content)
+        return result.text or "（Gemini 没有返回文本内容）"
+
+    try:
+        content = await asyncio.wait_for(
+            loop.run_in_executor(None, _call_gemini),
+            timeout=30,
+        )
+    except asyncio.TimeoutError:
+        await interaction.followup.send(
+            "Gemini 请求超时，请稍后再试或缩短提示。",
+            ephemeral=True,
+        )
+        return
     except Exception as exc:  # noqa: BLE001
         await interaction.followup.send(
             f"调用 Gemini 失败：{exc}", ephemeral=True
         )
+        return
+
+    # 限制消息长度以避免超出 Discord 限制
+    if len(content) > 1800:
+        content = content[:1800] + "…"
+    await interaction.followup.send(content)
 
 
 # 4. 启动机器人
