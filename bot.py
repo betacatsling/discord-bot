@@ -13,10 +13,9 @@ except AttributeError:
         pass
 
 import asyncio
-import json
 
 import discord
-import requests
+import google.genai as genai
 from discord import app_commands
 from discord.ext import commands
 from dotenv import load_dotenv
@@ -25,7 +24,7 @@ from dotenv import load_dotenv
 load_dotenv()
 TOKEN = os.getenv("DISCORD_TOKEN")
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
-GEMINI_MODEL_NAME = "gemini-1.5-flash"
+GEMINI_MODEL_NAME = os.getenv("GEMINI_MODEL_NAME", "gemini-3-pro-preview")
 GUILD_ID = os.getenv("GUILD_ID")  # 可选：指定单个测试服务器以加速 Slash 命令同步
 PROXY_URL = os.getenv("PROXY_URL", "http://127.0.0.1:7897")
 
@@ -34,6 +33,10 @@ if PROXY_URL:
     os.environ.setdefault("HTTP_PROXY", PROXY_URL)
     os.environ.setdefault("HTTPS_PROXY", PROXY_URL)
     os.environ.setdefault("ALL_PROXY", PROXY_URL)
+
+_genai_client: genai.Client | None = None
+if GEMINI_API_KEY:
+    _genai_client = genai.Client(api_key=GEMINI_API_KEY)
 
 # 2. 配置 Intents (意图)
 # 必须开启 message_content 才能读取用户发送的消息文本
@@ -122,44 +125,13 @@ async def gemini(interaction: discord.Interaction, prompt: str):
     loop = asyncio.get_running_loop()
 
     def _call_gemini() -> str:
-        url = (
-            f"https://generativelanguage.googleapis.com/v1beta/models/"
-            f"{GEMINI_MODEL_NAME}:generateContent"
+        if not _genai_client:
+            raise RuntimeError("Gemini 客户端未初始化")
+        resp = _genai_client.models.generate_content(
+            model=GEMINI_MODEL_NAME,
+            contents=prompt,
         )
-        headers = {
-            "Content-Type": "application/json",
-            "x-goog-api-key": GEMINI_API_KEY,
-        }
-        data = {
-            "contents": [
-                {
-                    "parts": [
-                        {
-                            "text": prompt,
-                        }
-                    ]
-                }
-            ]
-        }
-        proxies = {"http": PROXY_URL, "https": PROXY_URL} if PROXY_URL else None
-        resp = requests.post(
-            url,
-            headers=headers,
-            data=json.dumps(data),
-            timeout=40,
-            proxies=proxies,
-        )
-        resp.raise_for_status()
-        payload = resp.json()
-        candidates = payload.get("candidates") or []
-        if not candidates:
-            return "（Gemini 没有返回结果）"
-        parts = candidates[0].get("content", {}).get("parts", [])
-        text_parts = [
-            part.get("text", "") for part in parts if isinstance(part, dict)
-        ]
-        combined = "".join(text_parts).strip()
-        return combined or "（Gemini 没有返回文本内容）"
+        return (resp.text or "").strip() or "（Gemini 没有返回文本内容）"
 
     try:
         content = await asyncio.wait_for(
