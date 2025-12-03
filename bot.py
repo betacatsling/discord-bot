@@ -1,4 +1,16 @@
 import os
+import importlib.metadata as _metadata  # noqa: WPS436
+
+# Work around Python 3.9 stdlib missing packages_distributions (needed by google-generativeai)
+try:
+    _ = _metadata.packages_distributions
+except AttributeError:
+    try:
+        import importlib_metadata as _importlib_metadata  # type: ignore
+
+        _metadata.packages_distributions = _importlib_metadata.packages_distributions  # type: ignore[attr-defined]
+    except Exception:
+        pass
 
 import discord
 import google.generativeai as genai
