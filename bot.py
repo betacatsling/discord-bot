@@ -13,9 +13,10 @@ except AttributeError:
         pass
 
 import asyncio
+import json
 
 import discord
-import google.generativeai as genai
+import requests
 from discord import app_commands
 from discord.ext import commands
 from dotenv import load_dotenv
@@ -33,9 +34,6 @@ if PROXY_URL:
     os.environ.setdefault("HTTP_PROXY", PROXY_URL)
     os.environ.setdefault("HTTPS_PROXY", PROXY_URL)
     os.environ.setdefault("ALL_PROXY", PROXY_URL)
-
-if GEMINI_API_KEY:
-    genai.configure(api_key=GEMINI_API_KEY)
 
 # 2. 配置 Intents (意图)
 # 必须开启 message_content 才能读取用户发送的消息文本
@@ -124,9 +122,44 @@ async def gemini(interaction: discord.Interaction, prompt: str):
     loop = asyncio.get_running_loop()
 
     def _call_gemini() -> str:
-        model = genai.GenerativeModel(GEMINI_MODEL_NAME)
-        result = model.generate_content(prompt)
-        return result.text or "（Gemini 没有返回文本内容）"
+        url = (
+            f"https://generativelanguage.googleapis.com/v1beta/models/"
+            f"{GEMINI_MODEL_NAME}:generateContent"
+        )
+        headers = {
+            "Content-Type": "application/json",
+            "x-goog-api-key": GEMINI_API_KEY,
+        }
+        data = {
+            "contents": [
+                {
+                    "parts": [
+                        {
+                            "text": prompt,
+                        }
+                    ]
+                }
+            ]
+        }
+        proxies = {"http": PROXY_URL, "https": PROXY_URL} if PROXY_URL else None
+        resp = requests.post(
+            url,
+            headers=headers,
+            data=json.dumps(data),
+            timeout=40,
+            proxies=proxies,
+        )
+        resp.raise_for_status()
+        payload = resp.json()
+        candidates = payload.get("candidates") or []
+        if not candidates:
+            return "（Gemini 没有返回结果）"
+        parts = candidates[0].get("content", {}).get("parts", [])
+        text_parts = [
+            part.get("text", "") for part in parts if isinstance(part, dict)
+        ]
+        combined = "".join(text_parts).strip()
+        return combined or "（Gemini 没有返回文本内容）"
 
     try:
         content = await asyncio.wait_for(
