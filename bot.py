@@ -26,6 +26,13 @@ TOKEN = os.getenv("DISCORD_TOKEN")
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 GEMINI_MODEL_NAME = "gemini-1.5-flash"
 GUILD_ID = os.getenv("GUILD_ID")  # 可选：指定单个测试服务器以加速 Slash 命令同步
+PROXY_URL = os.getenv("PROXY_URL", "http://127.0.0.1:7897")
+
+if PROXY_URL:
+    # 让 Discord 和 Gemini 请求都走本地代理
+    os.environ.setdefault("HTTP_PROXY", PROXY_URL)
+    os.environ.setdefault("HTTPS_PROXY", PROXY_URL)
+    os.environ.setdefault("ALL_PROXY", PROXY_URL)
 
 if GEMINI_API_KEY:
     genai.configure(api_key=GEMINI_API_KEY)
