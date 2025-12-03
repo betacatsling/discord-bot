@@ -25,6 +25,7 @@ load_dotenv()
 TOKEN = os.getenv("DISCORD_TOKEN")
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 GEMINI_MODEL_NAME = "gemini-1.5-flash"
+GUILD_ID = os.getenv("GUILD_ID")  # 可选：指定单个测试服务器以加速 Slash 命令同步
 
 if GEMINI_API_KEY:
     genai.configure(api_key=GEMINI_API_KEY)
@@ -52,8 +53,13 @@ async def on_ready():
     # 同步 Slash Commands 到 Discord 服务器
     # 注意：在生产环境中，频繁同步可能会被限流，建议指定 guild (服务器) 同步用于测试
     try:
-        synced = await bot.tree.sync()
-        print(f"已同步 {len(synced)} 个命令")
+        if GUILD_ID:
+            guild = discord.Object(id=int(GUILD_ID))
+            synced = await bot.tree.sync(guild=guild)
+            print(f"已同步到测试服务器 {GUILD_ID} 的 {len(synced)} 个命令")
+        else:
+            synced = await bot.tree.sync()
+            print(f"已同步 {len(synced)} 个命令（全局同步可能需几分钟才能在客户端出现）")
     except Exception as e:
         print(f"同步命令失败: {e}")
 
