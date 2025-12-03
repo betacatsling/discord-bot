@@ -1,12 +1,19 @@
-import discord
 import os
-from discord.ext import commands
+
+import discord
+import google.generativeai as genai
 from discord import app_commands
+from discord.ext import commands
 from dotenv import load_dotenv
 
 # 1. 加载环境变量
 load_dotenv()
 TOKEN = os.getenv("DISCORD_TOKEN")
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+GEMINI_MODEL_NAME = "gemini-1.5-flash"
+
+if GEMINI_API_KEY:
+    genai.configure(api_key=GEMINI_API_KEY)
 
 # 2. 配置 Intents (意图)
 # 必须开启 message_content 才能读取用户发送的消息文本
@@ -68,6 +75,32 @@ async def add(interaction: discord.Interaction, a: int, b: int):
     """输入 /add a:1 b:2"""
     result = a + b
     await interaction.response.send_message(f"{a} + {b} = {result}")
+
+
+@bot.tree.command(name="gemini", description="向 Gemini 提问")
+@app_commands.describe(prompt="想问的问题或指令")
+async def gemini(interaction: discord.Interaction, prompt: str):
+    """输入 /gemini prompt:你的问题"""
+    if not GEMINI_API_KEY:
+        await interaction.response.send_message(
+            "Gemini API key 未配置，请在 .env 设置 GEMINI_API_KEY 后重启机器人。",
+            ephemeral=True,
+        )
+        return
+
+    await interaction.response.defer(thinking=True)
+    try:
+        model = genai.GenerativeModel(GEMINI_MODEL_NAME)
+        result = model.generate_content(prompt)
+        content = result.text or "（Gemini 没有返回文本内容）"
+        # 限制消息长度以避免超出 Discord 限制
+        if len(content) > 1800:
+            content = content[:1800] + "…"
+        await interaction.followup.send(content)
+    except Exception as exc:  # noqa: BLE001
+        await interaction.followup.send(
+            f"调用 Gemini 失败：{exc}", ephemeral=True
+        )
 
 
 # 4. 启动机器人
