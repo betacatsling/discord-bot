@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import os
 import importlib.metadata as _metadata  # noqa: WPS436
 
